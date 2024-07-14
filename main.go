@@ -133,7 +133,7 @@ func login() {
 
 	for user := range StorageUsers {
 		if StorageUsers[user].UserName != username {
-			fmt.Println("You are not registered yet!")
+			fmt.Println("You are not registered yet!. login first ^=^")
 			break
 		}
 		if StorageUsers[user].UserName == username && StorageUsers[user].Password == password {
