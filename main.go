@@ -119,21 +119,29 @@ func register() {
 
 	StorageUsers = append(StorageUsers, user)
 
-	fmt.Println(StorageUsers)
-
 	fmt.Printf("ID: %s, Username: %s, Password: %s\n", user.ID, user.UserName, user.Password)
 }
 
 func login() {
-	//scanner := bufio.NewReader(os.Stdin)
+	scanner := bufio.NewReader(os.Stdin)
 
-	//fmt.Println("Enter your username:")
-	//username, _ := scanner.ReadString('\n')
-	//
-	//fmt.Println("Enter the password:")
-	//password, _ := scanner.ReadString('\n')
+	fmt.Println("Enter your username:")
+	username, _ := scanner.ReadString('\n')
+
+	fmt.Println("Enter the password:")
+	password, _ := scanner.ReadString('\n')
 
 	for user := range StorageUsers {
-		fmt.Println(StorageUsers[user])
+		if StorageUsers[user].UserName != username {
+			fmt.Println("You are not registered yet!")
+			break
+		}
+		if StorageUsers[user].UserName == username && StorageUsers[user].Password == password {
+			fmt.Println("You are login")
+			break
+		} else {
+			fmt.Println("invalid provided credentials")
+			break
+		}
 	}
 }
