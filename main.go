@@ -5,8 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"github.com/google/uuid"
+	"moul.io/banner"
 	"os"
 	"strings"
+	"time"
 )
 
 type User struct {
@@ -17,8 +19,10 @@ type User struct {
 
 type Task struct {
 	Title   string
+	Date    time.Time
 	Status  bool
 	Content string
+	UserID  uuid.UUID
 }
 
 type Category struct {
@@ -27,7 +31,10 @@ type Category struct {
 	Colour string
 }
 
-var StorageUsers []User
+var authenticatedUser *User
+
+var UserStorage []User
+var TaskStorage []Task
 
 func main() {
 	fmt.Println("^-^ Welcome to the Todo App ^-^")
@@ -45,6 +52,13 @@ func main() {
 func runCommand(cmd string) {
 	cmd = strings.Replace(cmd, "\n", "", -1)
 
+	if cmd != "register" && cmd != "exit" && authenticatedUser == nil {
+		login()
+		if authenticatedUser == nil {
+			return
+		}
+	}
+
 	switch cmd {
 	case "create-task":
 		createTask()
@@ -55,8 +69,11 @@ func runCommand(cmd string) {
 	case "register":
 		register()
 
-	case "login":
-		login()
+	case "list-task":
+		listTask()
+
+	case "logout":
+		logout()
 
 	case "exit":
 		os.Exit(0)
@@ -78,10 +95,12 @@ func createTask() {
 	task := Task{
 		Title:   taskTitle,
 		Content: content,
+		Date:    time.Now(),
 		Status:  true,
+		UserID:  authenticatedUser.ID,
 	}
 
-	fmt.Printf("The task %s is created.\nThe Status: %t\nThe Content: %s", task.Title, task.Status, task.Content)
+	TaskStorage = append(TaskStorage, task)
 
 }
 
@@ -117,12 +136,14 @@ func register() {
 		Password: password,
 	}
 
-	StorageUsers = append(StorageUsers, user)
+	UserStorage = append(UserStorage, user)
 
 	fmt.Printf("ID: %s, Username: %s, Password: %s\n", user.ID, user.UserName, user.Password)
 }
 
 func login() {
+	fmt.Println("==========================")
+	fmt.Println(banner.Inline("login"))
 	scanner := bufio.NewReader(os.Stdin)
 
 	fmt.Println("Enter your username:")
@@ -131,17 +152,26 @@ func login() {
 	fmt.Println("Enter the password:")
 	password, _ := scanner.ReadString('\n')
 
-	for user := range StorageUsers {
-		if StorageUsers[user].UserName != username {
-			fmt.Println("You are not registered yet!. login first ^=^")
-			break
-		}
-		if StorageUsers[user].UserName == username && StorageUsers[user].Password == password {
+	for _, user := range UserStorage {
+		if user.UserName == username && user.Password == password {
 			fmt.Println("You are login")
-			break
-		} else {
-			fmt.Println("invalid provided credentials")
+			authenticatedUser = &user
 			break
 		}
 	}
+	if authenticatedUser == nil {
+		fmt.Println("Invalid provided credentials")
+	}
+}
+
+func listTask() {
+	for _, task := range TaskStorage {
+		if authenticatedUser.ID == task.UserID {
+			fmt.Printf("The task %s is created at %s by %s.\nThe Status: %t\nThe Content: %s", task.Title, task.Date, task.UserID, task.Status, task.Content)
+		}
+	}
+}
+
+func logout() {
+	authenticatedUser = nil
 }
