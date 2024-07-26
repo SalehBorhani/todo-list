@@ -18,23 +18,27 @@ type User struct {
 }
 
 type Task struct {
-	Title   string
-	Date    time.Time
-	Status  bool
-	Content string
-	UserID  uuid.UUID
+	Title        string
+	Date         time.Time
+	Status       bool
+	Content      string
+	UserID       uuid.UUID
+	CategoryName string
 }
 
 type Category struct {
+	Name   string
 	Title  string
-	Tasks  []Task
 	Colour string
 }
 
-var authenticatedUser *User
-
-var UserStorage []User
-var TaskStorage []Task
+var (
+	authenticatedUser *User
+	UserStorage       []User
+	TaskStorage       []Task
+	CategoryStorage   []Category
+	Commands          = []string{"create-task", "create-category", "register", "list-task", "logout", "exit"}
+)
 
 func main() {
 	fmt.Println("^-^ Welcome to the Todo App ^-^")
@@ -44,7 +48,7 @@ func main() {
 	for {
 		runCommand(*cmd)
 		scanner := bufio.NewReader(os.Stdin)
-		fmt.Println("Enter the command:")
+		fmt.Println("Enter the next command:")
 		*cmd, _ = scanner.ReadString('\n')
 	}
 }
@@ -52,7 +56,7 @@ func main() {
 func runCommand(cmd string) {
 	cmd = strings.Replace(cmd, "\n", "", -1)
 
-	if cmd != "register" && cmd != "exit" && authenticatedUser == nil {
+	if cmd != "register" && cmd != "exit" && authenticatedUser == nil && cmd != "show-commands" && cmd != "logout" {
 		login()
 		if authenticatedUser == nil {
 			return
@@ -78,6 +82,9 @@ func runCommand(cmd string) {
 	case "exit":
 		os.Exit(0)
 
+	case "show-commands":
+		showCommands()
+
 	default:
 		fmt.Printf("The command is invalid: %s\n", cmd)
 	}
@@ -92,20 +99,33 @@ func createTask() {
 	fmt.Println("Enter the content of the task:")
 	content, _ := scanner.ReadString('\n')
 
-	task := Task{
-		Title:   taskTitle,
-		Content: content,
-		Date:    time.Now(),
-		Status:  true,
-		UserID:  authenticatedUser.ID,
-	}
+	fmt.Println("Enter the category name for the task:")
+	categoryName, _ := scanner.ReadString('\n')
 
-	TaskStorage = append(TaskStorage, task)
+	for _, category := range CategoryStorage {
+		if categoryName == category.Name {
+			task := Task{
+				Title:        taskTitle,
+				Content:      content,
+				Date:         time.Now(),
+				Status:       true,
+				UserID:       authenticatedUser.ID,
+				CategoryName: categoryName,
+			}
+
+			TaskStorage = append(TaskStorage, task)
+		} else {
+			fmt.Printf("The category name %s does not exist\n", categoryName)
+		}
+	}
 
 }
 
 func createCategory() {
 	scanner := bufio.NewReader(os.Stdin)
+
+	fmt.Println("Enter the category name:")
+	categoryName, _ := scanner.ReadString('\n')
 
 	fmt.Println("Enter the category title:")
 	categoryTitle, _ := scanner.ReadString('\n')
@@ -114,11 +134,14 @@ func createCategory() {
 	colour, _ := scanner.ReadString('\n')
 
 	category := Category{
+		Name:   categoryName,
 		Title:  categoryTitle,
 		Colour: colour,
 	}
 
-	fmt.Printf("The category %s is created.\nThe Colour: %s", category.Title, category.Colour)
+	CategoryStorage = append(CategoryStorage, category)
+
+	fmt.Printf("The category %s is created.\nThe Colour: %s\nThe title: %s", category.Name, category.Colour, categoryTitle)
 }
 
 func register() {
@@ -142,6 +165,7 @@ func register() {
 }
 
 func login() {
+	fmt.Println("You have login first!!!")
 	fmt.Println("==========================")
 	fmt.Println(banner.Inline("login"))
 	scanner := bufio.NewReader(os.Stdin)
@@ -168,10 +192,23 @@ func listTask() {
 	for _, task := range TaskStorage {
 		if authenticatedUser.ID == task.UserID {
 			fmt.Printf("The task %s is created at %s by %s.\nThe Status: %t\nThe Content: %s", task.Title, task.Date, task.UserID, task.Status, task.Content)
+		} else if len(TaskStorage) == 0 {
+			fmt.Println("You have not created tasks yet!")
 		}
 	}
+
 }
 
 func logout() {
+	if authenticatedUser == nil {
+		fmt.Println("You are not logged in yet")
+		return
+	}
 	authenticatedUser = nil
+}
+
+func showCommands() {
+	for _, cmd := range Commands {
+		fmt.Println(cmd)
+	}
 }
