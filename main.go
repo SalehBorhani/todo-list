@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/google/uuid"
@@ -12,9 +13,9 @@ import (
 )
 
 type User struct {
-	ID       uuid.UUID
-	UserName string
-	Password string
+	ID       uuid.UUID `json:"id"`
+	UserName string    `json:"userName"`
+	Password string    `json:"password"`
 }
 
 type Task struct {
@@ -155,13 +156,43 @@ func register() {
 
 	user := User{
 		ID:       uuid.New(),
-		UserName: username,
-		Password: password,
+		UserName: strings.TrimSpace(username),
+		Password: strings.TrimSpace(password),
+	}
+
+	data, err := json.Marshal(user)
+	data = append(data, '\n')
+	if err != nil {
+		fmt.Println("couldn't encode user struct in json", err)
+
+		return
+	}
+
+	var f *os.File
+
+	//err = os.WriteFile("user.json", data, 0666)
+	f, err = os.OpenFile("user.json", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		fmt.Println("could not open file", err)
+
+		return
+	}
+
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			fmt.Println("could not close the file", err)
+		}
+	}(f)
+
+	_, err = f.Write(data)
+	if err != nil {
+		fmt.Println("could not write data to file", err)
+
+		return
 	}
 
 	UserStorage = append(UserStorage, user)
-
-	fmt.Printf("ID: %s, Username: %s, Password: %s\n", user.ID, user.UserName, user.Password)
 }
 
 func login() {
@@ -208,7 +239,10 @@ func logout() {
 }
 
 func showCommands() {
+	fmt.Println("==================")
 	for _, cmd := range Commands {
 		fmt.Println(cmd)
 	}
 }
+
+func loadUserData(user User) {}
