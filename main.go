@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -41,7 +43,13 @@ var (
 	Commands          = []string{"create-task", "create-category", "register", "list-task", "logout", "exit"}
 )
 
+const DATABASE = "user.txt"
+
 func main() {
+	// Load user data, if we have a database of users
+	UserStorage = loadUsers(DATABASE)
+
+	// Start the main program
 	fmt.Println("^-^ Welcome to the Todo App ^-^")
 	cmd := flag.String("command", "", "Do something")
 	flag.Parse()
@@ -113,12 +121,10 @@ func createTask() {
 				UserID:       authenticatedUser.ID,
 				CategoryName: categoryName,
 			}
-
 			TaskStorage = append(TaskStorage, task)
-		} else {
-			fmt.Printf("The category name %s does not exist\n", categoryName)
 		}
 	}
+	fmt.Printf("The category name %s does not exist.\nPlease create one!\n", strings.TrimSpace(categoryName))
 
 }
 
@@ -142,22 +148,28 @@ func createCategory() {
 
 	CategoryStorage = append(CategoryStorage, category)
 
-	fmt.Printf("The category %s is created.\nThe Colour: %s\nThe title: %s", category.Name, category.Colour, categoryTitle)
+	fmt.Printf("The category %s is created.\nThe Colour: %s\nThe title: %s", strings.TrimSpace(category.Name), category.Colour, categoryTitle)
 }
 
 func register() {
-	scanner := bufio.NewReader(os.Stdin)
+	fmt.Println(banner.Inline("register"))
+	scanner := bufio.NewScanner(os.Stdin)
+	var username, password string
 
-	fmt.Println("Enter your username:")
-	username, _ := scanner.ReadString('\n')
+	fmt.Println("please enter username:")
+	scanner.Scan()
+	username = scanner.Text()
 
-	fmt.Println("Enter the password:")
-	password, _ := scanner.ReadString('\n')
+	fmt.Println("please enter the password")
+	scanner.Scan()
+	password = scanner.Text()
+
+	hash := HashPassword(password)
 
 	user := User{
 		ID:       uuid.New(),
-		UserName: strings.TrimSpace(username),
-		Password: strings.TrimSpace(password),
+		UserName: username,
+		Password: hash,
 	}
 
 	data, err := json.Marshal(user)
@@ -168,47 +180,28 @@ func register() {
 		return
 	}
 
-	var f *os.File
-
-	//err = os.WriteFile("user.json", data, 0666)
-	f, err = os.OpenFile("user.json", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
-	if err != nil {
-		fmt.Println("could not open file", err)
-
-		return
-	}
-
-	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
-			fmt.Println("could not close the file", err)
-		}
-	}(f)
-
-	_, err = f.Write(data)
-	if err != nil {
-		fmt.Println("could not write data to file", err)
-
-		return
-	}
-
+	writeData(data)
 	UserStorage = append(UserStorage, user)
 }
 
 func login() {
-	fmt.Println("You have login first!!!")
 	fmt.Println("==========================")
 	fmt.Println(banner.Inline("login"))
-	scanner := bufio.NewReader(os.Stdin)
+	scanner := bufio.NewScanner(os.Stdin)
+	var username, password string
 
-	fmt.Println("Enter your username:")
-	username, _ := scanner.ReadString('\n')
+	fmt.Println("please enter username:")
+	scanner.Scan()
+	username = scanner.Text()
 
-	fmt.Println("Enter the password:")
-	password, _ := scanner.ReadString('\n')
+	fmt.Println("please enter the password")
+	scanner.Scan()
+	password = scanner.Text()
+
+	hash := HashPassword(password)
 
 	for _, user := range UserStorage {
-		if user.UserName == username && user.Password == password {
+		if user.UserName == username && user.Password == hash {
 			fmt.Println("You are login")
 			authenticatedUser = &user
 			break
@@ -245,4 +238,63 @@ func showCommands() {
 	}
 }
 
-func loadUserData(user User) {}
+func loadUsers(file string) []User {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil
+	}
+
+	// split users in text file based-on \n
+	userSlice := strings.Split(string(data), "\n")
+
+	for _, u := range userSlice {
+		var user User
+
+		if u == "" {
+			break
+		}
+		err = json.Unmarshal([]byte(u), &user)
+		if err != nil {
+			fmt.Println("could not decode json", err)
+
+			return nil
+		}
+
+		UserStorage = append(UserStorage, user)
+	}
+	return UserStorage
+}
+
+func writeData(data []byte) {
+	var f *os.File
+
+	f, err := os.OpenFile(DATABASE, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		fmt.Println("could not open file", err)
+
+		return
+	}
+
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			fmt.Println("could not close the file", err)
+
+			return
+		}
+	}(f)
+
+	_, err = f.Write(data)
+	if err != nil {
+		fmt.Println("could not write data to file", err)
+
+		return
+	}
+
+}
+
+func HashPassword(password string) string {
+	hash := md5.Sum([]byte(password))
+
+	return hex.EncodeToString(hash[:])
+}
