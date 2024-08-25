@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/salehborhani/todo-list/contract"
 	"github.com/salehborhani/todo-list/entity"
-	"github.com/salehborhani/todo-list/filestore"
+	"github.com/salehborhani/todo-list/repository/filestorage"
 	"moul.io/banner"
 	"os"
 	"strings"
@@ -33,7 +33,7 @@ func main() {
 	flag.Parse()
 
 	// Load user data, if we have a database of users
-	var fileStore = filestore.New(DATABASE)
+	var fileStore = filestorage.New(DATABASE)
 	users := fileStore.Load()
 	UserStorage = append(UserStorage, users...)
 
