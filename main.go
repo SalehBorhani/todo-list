@@ -4,66 +4,49 @@ import (
 	"bufio"
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/salehborhani/todo-list/contract"
+	"github.com/salehborhani/todo-list/entity"
+	"github.com/salehborhani/todo-list/repository/filestorage"
 	"moul.io/banner"
 	"os"
 	"strings"
 	"time"
 )
 
-type User struct {
-	ID       uuid.UUID `json:"id"`
-	UserName string    `json:"userName"`
-	Password string    `json:"password"`
-}
-
-type Task struct {
-	Title        string
-	Date         time.Time
-	Status       bool
-	Content      string
-	UserID       uuid.UUID
-	CategoryName string
-}
-
-type Category struct {
-	Name   string
-	Title  string
-	Colour string
-}
-
 var (
-	authenticatedUser *User
-	UserStorage       []User
-	TaskStorage       []Task
-	CategoryStorage   []Category
+	authenticatedUser *entity.User
+	UserStorage       []entity.User
+	TaskStorage       []entity.Task
+	CategoryStorage   []entity.Category
 	Commands          = []string{"create-task", "create-category", "register", "list-task", "logout", "exit"}
 )
 
 const DATABASE = "user.txt"
 
 func main() {
-	// Load user data, if we have a database of users
-	UserStorage = loadUsers(DATABASE)
-
 	// Start the main program
 	fmt.Println("^-^ Welcome to the Todo App ^-^")
 	cmd := flag.String("command", "", "Do something")
 	flag.Parse()
 
+	// Load user data, if we have a database of users
+	var fileStore = filestorage.New(DATABASE)
+	users := fileStore.Load()
+	UserStorage = append(UserStorage, users...)
+
 	for {
-		runCommand(*cmd)
-		scanner := bufio.NewReader(os.Stdin)
+		runCommand(fileStore, *cmd)
+		scanner := bufio.NewScanner(os.Stdin)
 		fmt.Println("Enter the next command:")
-		*cmd, _ = scanner.ReadString('\n')
+		scanner.Scan()
+		*cmd = scanner.Text()
 	}
 }
 
-func runCommand(cmd string) {
-	cmd = strings.Replace(cmd, "\n", "", -1)
+func runCommand(store contract.UserWriteStore, cmd string) {
 
 	if cmd != "register" && cmd != "exit" && authenticatedUser == nil && cmd != "show-commands" && cmd != "logout" {
 		login()
@@ -80,7 +63,7 @@ func runCommand(cmd string) {
 		createCategory()
 
 	case "register":
-		register()
+		register(store)
 
 	case "list-task":
 		listTask()
@@ -100,47 +83,53 @@ func runCommand(cmd string) {
 }
 
 func createTask() {
-	scanner := bufio.NewReader(os.Stdin)
+	scanner := bufio.NewScanner(os.Stdin)
 
 	fmt.Println("Enter the task title:")
-	taskTitle, _ := scanner.ReadString('\n')
+	scanner.Scan()
+	taskTitle := scanner.Text()
 
 	fmt.Println("Enter the content of the task:")
-	content, _ := scanner.ReadString('\n')
+	scanner.Scan()
+	content := scanner.Text()
 
 	fmt.Println("Enter the category name for the task:")
-	categoryName, _ := scanner.ReadString('\n')
+	scanner.Scan()
+	categoryName := scanner.Text()
 
 	for _, category := range CategoryStorage {
-		if categoryName == category.Name {
-			task := Task{
-				Title:        taskTitle,
-				Content:      content,
-				Date:         time.Now(),
-				Status:       true,
-				UserID:       authenticatedUser.ID,
-				CategoryName: categoryName,
-			}
-			TaskStorage = append(TaskStorage, task)
+		if categoryName != category.Name {
+			fmt.Printf("The category name %s does not exist.\nPlease create one!\n", strings.TrimSpace(categoryName))
 		}
 	}
-	fmt.Printf("The category name %s does not exist.\nPlease create one!\n", strings.TrimSpace(categoryName))
 
+	task := entity.Task{
+		Title:        taskTitle,
+		Content:      content,
+		Date:         time.Now(),
+		Status:       true,
+		UserID:       authenticatedUser.ID,
+		CategoryName: categoryName,
+	}
+	TaskStorage = append(TaskStorage, task)
 }
 
 func createCategory() {
-	scanner := bufio.NewReader(os.Stdin)
+	scanner := bufio.NewScanner(os.Stdin)
 
 	fmt.Println("Enter the category name:")
-	categoryName, _ := scanner.ReadString('\n')
+	scanner.Scan()
+	categoryName := scanner.Text()
 
 	fmt.Println("Enter the category title:")
-	categoryTitle, _ := scanner.ReadString('\n')
+	scanner.Scan()
+	categoryTitle := scanner.Text()
 
 	fmt.Println("Enter the colour of the category:")
-	colour, _ := scanner.ReadString('\n')
+	scanner.Scan()
+	colour := scanner.Text()
 
-	category := Category{
+	category := entity.Category{
 		Name:   categoryName,
 		Title:  categoryTitle,
 		Colour: colour,
@@ -148,10 +137,12 @@ func createCategory() {
 
 	CategoryStorage = append(CategoryStorage, category)
 
-	fmt.Printf("The category %s is created.\nThe Colour: %s\nThe title: %s", strings.TrimSpace(category.Name), category.Colour, categoryTitle)
+	for _, c := range CategoryStorage {
+		fmt.Println(c.Name)
+	}
 }
 
-func register() {
+func register(store contract.UserWriteStore) {
 	fmt.Println(banner.Inline("register"))
 	scanner := bufio.NewScanner(os.Stdin)
 	var username, password string
@@ -166,21 +157,13 @@ func register() {
 
 	hash := HashPassword(password)
 
-	user := User{
+	user := entity.User{
 		ID:       uuid.New(),
 		UserName: username,
 		Password: hash,
 	}
 
-	data, err := json.Marshal(user)
-	data = append(data, '\n')
-	if err != nil {
-		fmt.Println("couldn't encode user struct in json", err)
-
-		return
-	}
-
-	writeData(data)
+	store.Save(user)
 	UserStorage = append(UserStorage, user)
 }
 
@@ -236,61 +219,6 @@ func showCommands() {
 	for _, cmd := range Commands {
 		fmt.Println(cmd)
 	}
-}
-
-func loadUsers(file string) []User {
-	data, err := os.ReadFile(file)
-	if err != nil {
-		return nil
-	}
-
-	// split users in text file based-on \n
-	userSlice := strings.Split(string(data), "\n")
-
-	for _, u := range userSlice {
-		var user User
-
-		if u == "" {
-			break
-		}
-		err = json.Unmarshal([]byte(u), &user)
-		if err != nil {
-			fmt.Println("could not decode json", err)
-
-			return nil
-		}
-
-		UserStorage = append(UserStorage, user)
-	}
-	return UserStorage
-}
-
-func writeData(data []byte) {
-	var f *os.File
-
-	f, err := os.OpenFile(DATABASE, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
-	if err != nil {
-		fmt.Println("could not open file", err)
-
-		return
-	}
-
-	defer func(f *os.File) {
-		err := f.Close()
-		if err != nil {
-			fmt.Println("could not close the file", err)
-
-			return
-		}
-	}(f)
-
-	_, err = f.Write(data)
-	if err != nil {
-		fmt.Println("could not write data to file", err)
-
-		return
-	}
-
 }
 
 func HashPassword(password string) string {
