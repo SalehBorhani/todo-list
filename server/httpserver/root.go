@@ -11,9 +11,6 @@ func main() {
 	http.HandleFunc("/api/register/", handler.RegisterUser)
 
 	// TODO - login user with the creds
-
-	http.HandleFunc("/api/login/", handler.LoginUser)
-
 	server := &http.Server{
 		Addr: ":8080",
 	}

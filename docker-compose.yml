@@ -1,0 +1,13 @@
+services:
+  database:
+    image: docker.arvancloud.ir/sql:8.0
+    container_name: db
+    ports:
+      - "3306:3306"
+
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: gameappRoo7t0lk2o20
+      MYSQL_DATABASE: gameapp_db
+      MYSQL_USER: gameapp
+      MYSQL_PASSWORD: gameappt0lk2o20
