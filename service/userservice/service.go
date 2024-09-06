@@ -4,14 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"github.com/salehborhani/todo-list/entity"
+	"github.com/salehborhani/todo-list/pkg/hash"
 	"github.com/salehborhani/todo-list/pkg/phonenumber"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/salehborhani/todo-list/server/httpserver/jwt"
 )
 
 type Repository interface {
 	RepoRegister(u entity.User) (entity.User, error)
 	IsPhoneNumberUnique(phoneNumber string) (bool, error)
-	RepoLogin(userName, password string) error
+	IsAuthenticated(userName, password string) (bool, error)
 }
 
 type Service struct {
@@ -38,6 +39,7 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
+	Token string
 }
 
 func New(repo Repository) Service {
@@ -73,7 +75,7 @@ func (s Service) Register(req RegisterRequest) (RegisterResponse, error) {
 	}
 
 	// Save the Hashed password in database
-	hashedPass, err := HashPassword(req.Password)
+	hashedPass, err := hash.HashPassword(req.Password)
 	if err != nil {
 		return RegisterResponse{}, err
 	}
@@ -95,7 +97,23 @@ func (s Service) Register(req RegisterRequest) (RegisterResponse, error) {
 
 }
 
-func HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-	return string(bytes), err
+func (s Service) Login(l LoginRequest) (LoginResponse, error) {
+	// Connect to the database the check the creds
+	ok, err := s.repo.IsAuthenticated(l.UserName, l.Password)
+
+	if err != nil {
+		return LoginResponse{}, err
+	}
+
+	if !ok {
+		return LoginResponse{}, err
+	}
+
+	token, err := jwt.CreateToken(l.UserName)
+
+	if err != nil {
+		return LoginResponse{}, err
+	}
+
+	return LoginResponse{Token: token}, nil
 }
