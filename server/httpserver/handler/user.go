@@ -21,6 +21,7 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(
 			fmt.Sprintf(`{"error": "%s"}`, err.Error())))
 		return
@@ -29,6 +30,7 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	err = json.Unmarshal(data, &userRequest)
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(
 			fmt.Sprintf(`{"error": "%s"}`, err.Error())))
 		return
@@ -40,13 +42,18 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 	_, err = userSvc.Register(userRequest)
 
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(
 			fmt.Sprintf(`{"error": "%s"}`, err.Error())))
 		return
 	}
 
+	w.WriteHeader(http.StatusCreated)
 	_, err = w.Write([]byte(`{"message": "user created"}`))
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(
+			fmt.Sprintf(`{"error": "%s"}`, err.Error())))
 		return
 	}
 
@@ -63,6 +70,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(
 			fmt.Sprintf(`{"error": "%s"}`, err.Error())))
 		return
@@ -71,6 +79,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	err = json.Unmarshal(data, &userLogin)
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(
 			fmt.Sprintf(`{"error": "%s"}`, err.Error())))
 		return
@@ -79,16 +88,17 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 	mysqlRepo := mysqlrepo.New()
 	userSvc := userservice.New(mysqlRepo)
 
-	res, err := userSvc.Login(userLogin)
+	response, err := userSvc.Login(userLogin)
 
 	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(
 			fmt.Sprintf(`{"error": "%s"}`, err.Error())))
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	_, err = w.Write([]byte(fmt.Sprintf(`{"access_token": "%s"}`, res.Token)))
+	_, err = w.Write([]byte(fmt.Sprintf(`{"access_token": "%s"}`, response.Token)))
 	if err != nil {
 		return
 	}
