@@ -9,6 +9,7 @@ import (
 func main() {
 
 	http.HandleFunc("/api/register/", handler.RegisterUser)
+	http.HandleFunc("/api/login/", handler.LoginUser)
 
 	// TODO - login user with the creds
 	server := &http.Server{

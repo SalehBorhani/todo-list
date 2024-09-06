@@ -1,6 +1,6 @@
 services:
   database:
-    image: docker.arvancloud.ir/sql:8.0
+    image: docker.arvancloud.ir/mysql:8.0
     container_name: db
     ports:
       - "3306:3306"
