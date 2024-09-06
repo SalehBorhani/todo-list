@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/salehborhani/todo-list/repository/mysqlrepo"
+	"github.com/salehborhani/todo-list/server/httpserver/jwt"
 	"github.com/salehborhani/todo-list/service/userservice"
 	"io"
 	"net/http"
@@ -103,4 +104,31 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+}
+
+func CreateTask(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, http.StatusText(405), http.StatusMethodNotAllowed)
+
+		return
+	}
+
+	tokenString := r.Header.Get("Authorization")
+	if tokenString == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		http.Error(w, http.StatusText(401), http.StatusMethodNotAllowed)
+
+		return
+	}
+	tokenString = tokenString[len("Bearer "):]
+
+	err := jwt.VerifyToken(tokenString)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		http.Error(w, http.StatusText(401), http.StatusMethodNotAllowed)
+
+		return
+	}
+
+	w.Write([]byte(`You have logged in`))
 }
